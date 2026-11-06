@@ -35,3 +35,7 @@ L'application charge deux bibliothèques JavaScript depuis jsDelivr au démarrag
 
 - pdf-lib (MIT) : https://pdf-lib.js.org/
 - PDF.js (Apache-2.0) : https://mozilla.github.io/pdf.js/
+
+## Fiabilité de l'import
+
+L'import multipièces est désormais transactionnel au niveau du projet en mémoire : tous les documents sélectionnés sont validés avant d'ajouter leurs pages. Un PDF vide, invalide, chiffré ou dépassant les limites annule le lot sans ajouter de pages partielles. Le navigateur et l'export PDF restent à valider manuellement.
