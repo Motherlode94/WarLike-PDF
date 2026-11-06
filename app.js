@@ -12,10 +12,32 @@ $('#moveUp').disabled=!has||selected===0||loading;$('#moveDown').disabled=!has||
 $('#export').disabled=!pages.length||loading;$('#clear').disabled=!pages.length||loading;
 $('#empty').hidden=has;$('#previewCanvas').hidden=!has;
 const notes=$('#annotations');notes.replaceChildren();if(has){for(let i=0;i<pages[selected].notes.length;i++){const note=pages[selected].notes[i],row=document.createElement('div');row.className='annotationRow';const title=document.createElement('span');title.textContent=note.text;const remove=document.createElement('button');remove.type='button';remove.textContent='Retirer';remove.onclick=()=>{pages[selected].notes.splice(i,1);refresh()};row.append(title,remove);notes.append(row)}}renderPreview()}
-async function importFiles(files){if(loading)return;const incoming=[...files];if(!incoming.length)return;if(sources.length+incoming.length>MAX_FILES){message('Maximum six fichiers par projet.');return}
- loading=true;$('#files').disabled=true;message('Lecture des fichiers…');try{for(const file of incoming){if(file.size>MAX_FILE_BYTES)throw Error('Fichier trop volumineux : '+file.name);const bytes=new Uint8Array(await file.arrayBuffer());const doc=await PDFDocument.load(bytes,{ignoreEncryption:false,updateMetadata:false});const count=doc.getPageCount();if(count===0)throw Error('PDF sans pages : '+file.name);if(pages.length+count>MAX_PAGES)throw Error('Limite de '+MAX_PAGES+' pages dépassée.');
- const sourceIndex=sources.length;sources.push({name:file.name,bytes,doc});for(let p=0;p<count;p++)pages.push({source:sourceIndex,page:p,rotation:0,notes:[]});if(selected<0)selected=0}
- message(pages.length+' pages importées.')}catch(error){message('Import interrompu : '+(error.message||error))}finally{loading=false;$('#files').disabled=false;$('#files').value='';refresh()}}
+async function importFiles(files){
+ if(loading)return;
+ const incoming=[...files];if(!incoming.length)return;
+ if(sources.length+incoming.length>MAX_FILES){message('Maximum six fichiers par projet.');return;}
+ loading=true;$('#files').disabled=true;message('Vérification des fichiers…');
+ try{
+  const pendingSources=[],pendingPages=[];
+  for(const file of incoming){
+   if(file.size>MAX_FILE_BYTES)throw Error('Fichier trop volumineux : '+file.name);
+   if(!file.size)throw Error('Fichier vide : '+file.name);
+   const bytes=new Uint8Array(await file.arrayBuffer());
+   const doc=await PDFDocument.load(bytes,{ignoreEncryption:false,updateMetadata:false});
+   const count=doc.getPageCount();
+   if(count===0)throw Error('PDF sans pages : '+file.name);
+   if(pages.length+pendingPages.length+count>MAX_PAGES)throw Error('Limite de '+MAX_PAGES+' pages dépassée.');
+   const sourceIndex=sources.length+pendingSources.length;
+   pendingSources.push({name:file.name,bytes,doc});
+   for(let p=0;p<count;p++)pendingPages.push({source:sourceIndex,page:p,rotation:0,notes:[]});
+  }
+  // Atomic project update: the import either adds every validated file or adds nothing.
+  sources.push(...pendingSources);pages.push(...pendingPages);
+  if(selected<0&&pages.length)selected=0;
+  message(pages.length+' pages importées.');
+ }catch(error){message('Import annulé sans modification : '+(error.message||error));}
+ finally{loading=false;$('#files').disabled=false;$('#files').value='';refresh();}
+}
 $('#files').onchange=e=>importFiles(e.target.files||[]);
 function move(delta){const j=selected+delta;if(selected<0||j<0||j>=pages.length)return;[pages[j],pages[selected]]=[pages[selected],pages[j]];selected=j;refresh()}
 $('#moveUp').onclick=()=>move(-1);$('#moveDown').onclick=()=>move(1);
